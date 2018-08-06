@@ -1,3 +1,3 @@
-A fork of archive/zip that allows appending to existing
+A fork of archive/zip that allows appending/delete to existing
 zip files.
 

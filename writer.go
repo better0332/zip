@@ -32,7 +32,7 @@ type header struct {
 
 // NewWriter returns a new Writer writing a zip file to w.
 func NewWriter(w io.Writer) *Writer {
-	return &Writer{cw: &countWriter{w: bufio.NewWriter(w)}}
+	return &Writer{cw: &countWriter{w: bufio.NewWriter(w)}, names: make(map[string]int)}
 }
 
 // SetOffset sets the offset of the beginning of the zip data within the
@@ -90,11 +90,6 @@ func (w *Writer) Close() error {
 	start := w.cw.count
 	records := uint64(0)
 	for _, h := range w.dir {
-		if h.FileHeader == nil {
-			// This entry has been superceded by a later
-			// appended entry.
-			continue
-		}
 		records++
 		var buf [directoryHeaderLen]byte
 		b := writeBuf(buf[:])
@@ -219,6 +214,16 @@ func (w *Writer) Create(name string) (io.Writer, error) {
 	return w.CreateHeader(header)
 }
 
+// Delete deletes a file from the zip file using the provided name.
+func (w *Writer) Delete(name string) {
+	i, ok := w.names[name]
+	if !ok {
+		return
+	}
+	w.dir = append(w.dir[:i], w.dir[i+1:]...)
+	delete(w.names, name)
+}
+
 // CreateHeader adds a file to the zip file using the provided FileHeader
 // for the file metadata.
 // It returns a Writer to which the file contents should be written.
@@ -235,13 +240,6 @@ func (w *Writer) CreateHeader(fh *FileHeader) (io.Writer, error) {
 	if len(w.dir) > 0 && w.dir[len(w.dir)-1].FileHeader == fh {
 		// See https://golang.org/issue/11144 confusion.
 		return nil, errors.New("archive/zip: invalid duplicate FileHeader")
-	}
-	if i, ok := w.names[fh.Name]; ok {
-		// We're appending a file that existed already,
-		// so clear out the old entry so that it won't
-		// be added to the index.
-		w.dir[i].FileHeader = nil
-		delete(w.names, fh.Name)
 	}
 
 	fh.Flags |= 0x8 // we will write a data descriptor
@@ -264,6 +262,15 @@ func (w *Writer) CreateHeader(fh *FileHeader) (io.Writer, error) {
 		return nil, err
 	}
 	fw.rawCount = &countWriter{w: fw.comp}
+
+	if i, ok := w.names[fh.Name]; ok {
+		// We're appending a file that existed already,
+		// so clear out the old entry so that it won't
+		// be added to the index.
+		w.dir = append(w.dir[:i], w.dir[i+1:]...)
+	} else {
+		w.names[fh.Name] = len(w.dir)
+	}
 
 	h := &header{
 		FileHeader: fh,
