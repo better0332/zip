@@ -219,6 +219,14 @@ func (w *Writer) Create(name string) (io.Writer, error) {
 	return w.CreateHeader(header)
 }
 
+// Delete deletes a file from the zip file using the provided name.
+func (w *Writer) Delete(name string) {
+	if i, ok := w.names[name]; ok {
+		w.dir = append(w.dir[:i], w.dir[i+1:]...)
+		delete(w.names, name)
+	}
+}
+
 // CreateHeader adds a file to the zip file using the provided FileHeader
 // for the file metadata.
 // It returns a Writer to which the file contents should be written.

@@ -136,6 +136,48 @@ func TestAppend(t *testing.T) {
 	}
 }
 
+func TestDelete(t *testing.T) {
+	// write a zip file
+	buf := new(bytes.Buffer)
+	w := NewWriter(buf)
+
+	for _, wt := range writeTests {
+		testCreate(t, w, &wt)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// read it back
+	r, err := NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// append a file to it.
+	abuf := new(bytes.Buffer)
+	w = r.Append(abuf)
+
+	w.Delete(writeTests[0].Name)
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// read the whole thing back.
+	allBytes := append(buf.Bytes(), abuf.Bytes()...)
+
+	r, err = NewReader(bytes.NewReader(allBytes), int64(len(allBytes)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, wt := range writeTests[1:] {
+		testReadFile(t, r.File[i], &wt)
+	}
+}
+
 func TestWriterOffset(t *testing.T) {
 	largeData := make([]byte, 1<<17)
 	for i := range largeData {
