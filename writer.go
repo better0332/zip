@@ -222,7 +222,7 @@ func (w *Writer) Create(name string) (io.Writer, error) {
 // Delete deletes a file from the zip file using the provided name.
 func (w *Writer) Delete(name string) {
 	if i, ok := w.names[name]; ok {
-		w.dir = append(w.dir[:i], w.dir[i+1:]...)
+		w.dir[i].FileHeader = nil
 		delete(w.names, name)
 	}
 }
